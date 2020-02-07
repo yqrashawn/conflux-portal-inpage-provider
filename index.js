@@ -40,13 +40,12 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   // private state, kept here in part for use in the _metamask proxy
   this._state = {
     sentWarnings: {
-      enable: false,
+      enable: true,
       experimentalMethods: false,
-      isConnected: false,
-      sendAsync: false,
-      // TODO:deprecate:2020-Q1
-      autoReload: false,
-      sendSync: false,
+      isConnected: true,
+      sendAsync: true,
+      autoReload: true,
+      sendSync: true,
     },
     isConnected: undefined,
     accounts: undefined,
@@ -66,11 +65,11 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
     connectionStream,
     mux,
     connectionStream,
-    this._handleDisconnect.bind(this, 'MetaMask'),
+    this._handleDisconnect.bind(this, 'ConfluxPortal'),
   )
 
   // subscribe to metamask public config (one-way)
-  this._publicConfigStore = new ObservableStore({ storageKey: 'MetaMask-Config' })
+  this._publicConfigStore = new ObservableStore({ storageKey: 'Conflux-Portal-Config' })
 
   // handle isUnlocked changes, and chainChanged and networkChanged events
   this._publicConfigStore.subscribe(state => {
@@ -110,7 +109,7 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
     mux.createStream('publicConfig'),
     asStream(this._publicConfigStore),
     // RPC requests should still work if only this stream fails
-    logStreamDisconnectWarning.bind(this, 'MetaMask PublicConfigStore'),
+    logStreamDisconnectWarning.bind(this, 'ConfluxPortal PublicConfigStore'),
   )
 
   // ignore phishing warning message (handled elsewhere)
@@ -130,7 +129,7 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
     jsonRpcConnection.stream,
     mux.createStream('provider'),
     jsonRpcConnection.stream,
-    this._handleDisconnect.bind(this, 'MetaMask RpcProvider'),
+    this._handleDisconnect.bind(this, 'ConfluxPortal RpcProvider'),
   )
 
   // handle RPC requests via dapp-side rpc engine
@@ -182,7 +181,7 @@ MetamaskInpageProvider.prototype._web3Ref = undefined
 // this will be default true so it does not break any old apps.
 MetamaskInpageProvider.prototype.autoRefreshOnNetworkChange = true
 
-MetamaskInpageProvider.prototype.isMetaMask = true
+MetamaskInpageProvider.prototype.isConfluxPortal = true
 
 /**
  * Deprecated.
@@ -409,7 +408,7 @@ MetamaskInpageProvider.prototype._handleDisconnect = function (streamName, err) 
   if (this._state.isConnected) {
     this.emit('close', {
       code: 1011,
-      reason: 'MetaMask background communication error.',
+      reason: 'ConfluxPortal background communication error.',
     })
   }
   this._state.isConnected = false
@@ -423,7 +422,7 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, is
   // defensive programming
   if (!Array.isArray(accounts)) {
     log.error(
-      'MetaMask: Received non-array accounts parameter. Please report this bug.',
+      'ConfluxPortal: Received non-array accounts parameter. Please report this bug.',
       accounts,
     )
     accounts = []
@@ -457,6 +456,36 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, is
   } else if (window.web3 && typeof window.web3.eth === 'object') {
     window.web3.eth.defaultAccount = this.selectedAddress
   }
+}
+
+MetamaskInpageProvider.prototype.requestId = function() {
+    return `${Date.now()}${Math.random()
+      .toFixed(7)
+      .substring(2)}`
+}
+
+MetamaskInpageProvider.prototype.call = async function(method, ...params) {
+    const payload = {
+      method,
+      params,
+      jsonrpc: '2.0',
+      id: this.requestId(),
+    }
+
+    return new Promise((resolve, reject) => {
+      this.sendAsync(payload, (err, { result, error }) => {
+        if (err || error) {
+          reject(err || error)
+        }
+
+        if (result === '0x') {
+          result =
+            '0x0000000000000000000000000000000000000000000000000000000000000000'
+        }
+
+        resolve(result)
+      })
+    })
 }
 
 /**
