@@ -106,14 +106,14 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   })
 
   pump(
-    mux.createStream('publicConfig'),
+    mux.createStream('confluxPortalPublicConfig'),
     asStream(this._publicConfigStore),
     // RPC requests should still work if only this stream fails
     logStreamDisconnectWarning.bind(this, 'ConfluxPortal PublicConfigStore'),
   )
 
   // ignore phishing warning message (handled elsewhere)
-  mux.ignoreStream('phishing')
+  mux.ignoreStream('confluxPortalPhishing')
 
   // setup own event listeners
 
@@ -127,7 +127,7 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   const jsonRpcConnection = createJsonRpcStream()
   pump(
     jsonRpcConnection.stream,
-    mux.createStream('provider'),
+    mux.createStream('confluxPortalProvider'),
     jsonRpcConnection.stream,
     this._handleDisconnect.bind(this, 'ConfluxPortal RpcProvider'),
   )
@@ -458,34 +458,34 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, is
   }
 }
 
-MetamaskInpageProvider.prototype.requestId = function() {
-    return `${Date.now()}${Math.random()
-      .toFixed(7)
-      .substring(2)}`
+MetamaskInpageProvider.prototype.requestId = function () {
+  return `${Date.now()}${Math.random()
+  .toFixed(7)
+  .substring(2)}`
 }
 
-MetamaskInpageProvider.prototype.call = async function(method, ...params) {
-    const payload = {
-      method,
-      params,
-      jsonrpc: '2.0',
-      id: this.requestId(),
-    }
+MetamaskInpageProvider.prototype.call = async function (method, ...params) {
+  const payload = {
+    method,
+    params,
+    jsonrpc: '2.0',
+    id: this.requestId(),
+  }
 
-    return new Promise((resolve, reject) => {
-      this.sendAsync(payload, (err, { result, error }) => {
-        if (err || error) {
-          reject(err || error)
-        }
+  return new Promise((resolve, reject) => {
+    this.sendAsync(payload, (err, { result, error }) => {
+      if (err || error) {
+        reject(err || error)
+      }
 
-        if (result === '0x') {
-          result =
+      if (result === '0x') {
+        result =
             '0x0000000000000000000000000000000000000000000000000000000000000000'
-        }
+      }
 
-        resolve(result)
-      })
+      resolve(result)
     })
+  })
 }
 
 /**

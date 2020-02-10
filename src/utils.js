@@ -33,7 +33,7 @@ function createErrorMiddleware () {
         return done()
       }
       serializeError(error)
-      log.error(`MetaMask - RPC Error: ${error.message}`, error)
+      log.error(`ConfluxPortal - RPC Error: ${error.message}`, error)
       done()
     })
   }
@@ -47,7 +47,7 @@ function createErrorMiddleware () {
  * @param {Error} err - The associated error to log.
  */
 function logStreamDisconnectWarning (remoteLabel, err) {
-  let warningMsg = `MetamaskInpageProvider - lost connection to ${remoteLabel}`
+  let warningMsg = `ConfluxPortalInpageProvider - lost connection to ${remoteLabel}`
   if (err) warningMsg += '\n' + err.stack
   log.warn(warningMsg)
   if (this instanceof EventEmitter || this instanceof SafeEventEmitter) {
