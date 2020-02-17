@@ -333,14 +333,17 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
   switch (payload.method) {
 
     case 'eth_accounts':
+    case 'cfx_accounts':
       result = this.selectedAddress ? [this.selectedAddress] : []
       break
 
     case 'eth_coinbase':
+    case 'cfx_coinbase':
       result = this.selectedAddress || null
       break
 
     case 'eth_uninstallFilter':
+    case 'cfx_uninstallFilter':
       this._sendAsync(payload, () => {})
       result = true
       break
