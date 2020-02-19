@@ -230,6 +230,9 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
       'eth_accounts',
       'eth_coinbase',
       'eth_uninstallFilter',
+      'cfx_accounts',
+      'cfx_coinbase',
+      'cfx_uninstallFilter',
       'net_version',
     ].includes(payload.method)) {
       return this._sendSync(payload)
