@@ -1,20 +1,20 @@
-# MetaMask Inpage Provider
+# ConfluxPortal Inpage Provider
 
-Used to initialize the inpage ethereum provider injected by MetaMask.
+Used to initialize the inpage ethereum provider injected by ConfluxPortal.
 
 ## Installation
 
-`yarn add metamask-inpage-provider`
+`yarn add @yqrashawn/conflux-portal-inpage-provider`
 
 ## Usage
 
 ```javascript
 // Create a stream to a remote provider:
-var metamaskStream = new LocalMessageDuplexStream({
+var confluxPortalStream = new LocalMessageDuplexStream({
   name: 'inpage',
   target: 'contentscript',
 })
 
 // compose the inpage provider
-var inpageProvider = new MetamaskInpageProvider(metamaskStream)
+var inpageProvider = new ConfluxPortalInpageProvider(confluxPortalStream)
 ```
