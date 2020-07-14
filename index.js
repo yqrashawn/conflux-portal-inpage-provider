@@ -471,6 +471,7 @@ MetamaskInpageProvider.prototype.requestId = function () {
 }
 
 MetamaskInpageProvider.prototype.call = async function (method, ...params) {
+  if (method === 'send_transaction') method = 'cfx_sendTransaction'
   const payload = {
     method,
     params,
