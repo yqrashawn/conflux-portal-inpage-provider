@@ -33,7 +33,6 @@ module.exports = MetamaskInpageProvider
 inherits(MetamaskInpageProvider, SafeEventEmitter)
 
 function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
-
   // super constructor
   SafeEventEmitter.call(this)
 
@@ -60,7 +59,7 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   this.chainId = undefined
 
   // setup connectionStream multiplexing
-  const mux = this.mux = new ObjectMultiplex()
+  const mux = (this.mux = new ObjectMultiplex())
   pump(
     connectionStream,
     mux,
@@ -69,11 +68,12 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   )
 
   // subscribe to metamask public config (one-way)
-  this._publicConfigStore = new ObservableStore({ storageKey: 'Conflux-Portal-Config' })
+  this._publicConfigStore = new ObservableStore({
+    storageKey: 'Conflux-Portal-Config',
+  })
 
   // handle isUnlocked changes, and chainChanged and networkChanged events
-  this._publicConfigStore.subscribe(state => {
-
+  this._publicConfigStore.subscribe((state) => {
     if ('isUnlocked' in state && state.isUnlocked !== this._state.isUnlocked) {
       this._state.isUnlocked = state.isUnlocked
       if (!this._state.isUnlocked) {
@@ -99,7 +99,10 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
     }
 
     // Emit networkChanged event on network change
-    if ('networkVersion' in state && state.networkVersion !== this.networkVersion) {
+    if (
+      'networkVersion' in state &&
+      state.networkVersion !== this.networkVersion
+    ) {
       this.networkVersion = state.networkVersion
       this.emit('networkChanged', this.networkVersion)
     }
@@ -140,7 +143,7 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   this._rpcEngine = rpcEngine
 
   // json rpc notification listener
-  jsonRpcConnection.events.on('notification', payload => {
+  jsonRpcConnection.events.on('notification', (payload) => {
     if (payload.method === 'wallet_accountsChanged') {
       this._handleAccountsChanged(payload.result)
     } else if (payload.method === 'eth_subscription') {
@@ -166,7 +169,10 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   // moved this here because there's another warning in .enable() discouraging
   // the use thereof per EIP 1102
   setTimeout(() => {
-    if (this.autoRefreshOnNetworkChange && !this._state.sentWarnings.autoReload) {
+    if (
+      this.autoRefreshOnNetworkChange &&
+      !this._state.sentWarnings.autoReload
+    ) {
       log.warn(messages.warnings.autoReloadDeprecation)
       this._state.sentWarnings.autoReload = true
     }
@@ -188,7 +194,6 @@ MetamaskInpageProvider.prototype.isConfluxPortal = true
  * Returns whether the inpage provider is connected to MetaMask.
  */
 MetamaskInpageProvider.prototype.isConnected = function () {
-
   if (!this._state.sentWarnings.isConnected) {
     log.warn(messages.warnings.isConnectedDeprecation)
     this._state.sentWarnings.isConnected = true
@@ -205,17 +210,12 @@ MetamaskInpageProvider.prototype.isConnected = function () {
  * @returns {Promise<any>} - A promise resolving to the result of the method call.
  */
 MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
-
   // preserve original params for later error if necessary
   const _params = params
 
   // construct payload object
   let payload
-  if (
-    typeof methodOrPayload === 'object' &&
-    !Array.isArray(methodOrPayload)
-  ) {
-
+  if (typeof methodOrPayload === 'object' && !Array.isArray(methodOrPayload)) {
     // TODO:deprecate:2020-Q1
     // handle send(object, callback), an alias for sendAsync(object, callback)
     if (typeof params === 'function') {
@@ -226,22 +226,24 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
 
     // TODO:deprecate:2020-Q1
     // backwards compatibility: "synchronous" methods
-    if (!params && [
-      'eth_accounts',
-      'eth_coinbase',
-      'eth_uninstallFilter',
-      'cfx_accounts',
-      'cfx_coinbase',
-      'cfx_uninstallFilter',
-      'net_version',
-    ].includes(payload.method)) {
+    if (
+      !params &&
+      [
+        'eth_accounts',
+        'eth_coinbase',
+        'eth_uninstallFilter',
+        'cfx_accounts',
+        'cfx_coinbase',
+        'cfx_uninstallFilter',
+        'net_version',
+      ].includes(payload.method)
+    ) {
       return this._sendSync(payload)
     }
   } else if (
     typeof methodOrPayload === 'string' &&
     typeof params !== 'function'
   ) {
-
     // wrap params in array out of kindness
     // params have to be an array per EIP 1193, even though JSON RPC
     // allows objects
@@ -271,10 +273,7 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
 
   return new Promise((resolve, reject) => {
     try {
-      this._sendAsync(
-        payload,
-        getRpcPromiseCallback(resolve, reject),
-      )
+      this._sendAsync(payload, getRpcPromiseCallback(resolve, reject))
     } catch (error) {
       reject(error)
     }
@@ -288,7 +287,6 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
  * @returns {Promise<Array<string>>} - A promise that resolves to an array of addresses.
  */
 MetamaskInpageProvider.prototype.enable = function () {
-
   if (!this._state.sentWarnings.enable) {
     log.warn(messages.warnings.enableDeprecation)
     this._state.sentWarnings.enable = true
@@ -313,7 +311,6 @@ MetamaskInpageProvider.prototype.enable = function () {
  * @param {Function} callback - The callback function.
  */
 MetamaskInpageProvider.prototype.sendAsync = function (payload, cb) {
-
   if (!this._state.sentWarnings.sendAsync) {
     log.warn(messages.warnings.sendAsyncDeprecation)
     this._state.sentWarnings.sendAsync = true
@@ -326,7 +323,6 @@ MetamaskInpageProvider.prototype.sendAsync = function (payload, cb) {
  * Internal backwards compatibility method.
  */
 MetamaskInpageProvider.prototype._sendSync = function (payload) {
-
   if (!this._state.sentWarnings.sendSync) {
     log.warn(messages.warnings.sendSyncDeprecation)
     this._state.sentWarnings.sendSync = true
@@ -334,7 +330,6 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
 
   let result
   switch (payload.method) {
-
     case 'eth_accounts':
     case 'cfx_accounts':
       result = this.selectedAddress ? [this.selectedAddress] : []
@@ -360,11 +355,14 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
   }
 
   // looks like a plain object, but behaves like a Promise if someone calls .then on it :evil_laugh:
-  return makeThenable({
-    id: payload.id,
-    jsonrpc: payload.jsonrpc,
-    result,
-  }, 'result')
+  return makeThenable(
+    {
+      id: payload.id,
+      jsonrpc: payload.jsonrpc,
+      result,
+    },
+    'result',
+  )
 }
 
 /**
@@ -375,21 +373,24 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
  * @param {Function} userCallback - The caller's callback.
  * @param {boolean} isInternal - Whether the request is internal.
  */
-MetamaskInpageProvider.prototype._sendAsync = function (payload, userCallback, isInternal = false) {
-
+MetamaskInpageProvider.prototype._sendAsync = function (
+  payload,
+  userCallback,
+  isInternal = false,
+) {
   let cb = userCallback
 
   if (!Array.isArray(payload)) {
-
     if (!payload.jsonrpc) {
       payload.jsonrpc = '2.0'
     }
 
     if (
+      payload.method === 'cfx_accounts' ||
       payload.method === 'eth_accounts' ||
+      payload.method === 'cfx_requestAccounts' ||
       payload.method === 'eth_requestAccounts'
     ) {
-
       // handle accounts changing
       cb = (err, res) => {
         this._handleAccountsChanged(
@@ -408,8 +409,10 @@ MetamaskInpageProvider.prototype._sendAsync = function (payload, userCallback, i
 /**
  * Called when connection is lost to critical streams.
  */
-MetamaskInpageProvider.prototype._handleDisconnect = function (streamName, err) {
-
+MetamaskInpageProvider.prototype._handleDisconnect = function (
+  streamName,
+  err,
+) {
   logStreamDisconnectWarning.bind(this)(streamName, err)
   if (this._state.isConnected) {
     this.emit('close', {
@@ -423,8 +426,11 @@ MetamaskInpageProvider.prototype._handleDisconnect = function (streamName, err) 
 /**
  * Called when accounts may have changed.
  */
-MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, isEthAccounts = false, isInternal = false) {
-
+MetamaskInpageProvider.prototype._handleAccountsChanged = function (
+  accounts,
+  isEthAccounts = false,
+  isInternal = false,
+) {
   // defensive programming
   if (!Array.isArray(accounts)) {
     log.error(
@@ -436,7 +442,6 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, is
 
   // emit accountsChanged if anything about the accounts array has changed
   if (!dequal(this._state.accounts, accounts)) {
-
     // we should always have the correct accounts even before eth_accounts
     // returns, except in cases where isInternal is true
     if (isEthAccounts && !isInternal) {
@@ -465,9 +470,7 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (accounts, is
 }
 
 MetamaskInpageProvider.prototype.requestId = function () {
-  return `${Date.now()}${Math.random()
-  .toFixed(7)
-  .substring(2)}`
+  return `${Date.now()}${Math.random().toFixed(7).substring(2)}`
 }
 
 MetamaskInpageProvider.prototype.call = async function (method, ...params) {
@@ -487,7 +490,7 @@ MetamaskInpageProvider.prototype.call = async function (method, ...params) {
 
       if (result === '0x') {
         result =
-            '0x0000000000000000000000000000000000000000000000000000000000000000'
+          '0x0000000000000000000000000000000000000000000000000000000000000000'
       }
 
       resolve(result)
@@ -501,7 +504,6 @@ MetamaskInpageProvider.prototype.call = async function (method, ...params) {
 function getExperimentalApi (instance) {
   return new Proxy(
     {
-
       /**
        * Determines if MetaMask is unlocked by the user.
        *
@@ -509,8 +511,8 @@ function getExperimentalApi (instance) {
        */
       isUnlocked: async () => {
         if (instance._state.isUnlocked === undefined) {
-          await new Promise(
-            (resolve) => instance._publicConfigStore.once('update', () => resolve()),
+          await new Promise((resolve) =>
+            instance._publicConfigStore.once('update', () => resolve()),
           )
         }
         return instance._state.isUnlocked
@@ -520,11 +522,11 @@ function getExperimentalApi (instance) {
        * Make a batch request.
        */
       sendBatch: async (requests) => {
-
         // basic input validation
         if (!Array.isArray(requests)) {
           throw ethErrors.rpc.invalidRequest({
-            message: 'Batch requests must be made with an array of request objects.',
+            message:
+              'Batch requests must be made with an array of request objects.',
             data: requests,
           })
         }
@@ -549,7 +551,10 @@ function getExperimentalApi (instance) {
        * @returns {boolean} - returns true if this domain is currently enabled
        */
       isEnabled: () => {
-        return Array.isArray(instance._state.accounts) && instance._state.accounts.length > 0
+        return (
+          Array.isArray(instance._state.accounts) &&
+          instance._state.accounts.length > 0
+        )
       },
 
       /**
@@ -560,16 +565,18 @@ function getExperimentalApi (instance) {
        */
       isApproved: async () => {
         if (instance._state.accounts === undefined) {
-          await new Promise(
-            (resolve) => instance.once('accountsChanged', () => resolve()),
+          await new Promise((resolve) =>
+            instance.once('accountsChanged', () => resolve()),
           )
         }
-        return Array.isArray(instance._state.accounts) && instance._state.accounts.length > 0
+        return (
+          Array.isArray(instance._state.accounts) &&
+          instance._state.accounts.length > 0
+        )
       },
     },
     {
       get: (obj, prop) => {
-
         if (!instance._state.sentWarnings.experimentalMethods) {
           log.warn(messages.warnings.experimentalMethods)
           instance._state.sentWarnings.experimentalMethods = true

@@ -1,6 +1,6 @@
 {
   "name": "@yqrashawn/conflux-portal-inpage-provider",
-  "version": "4.0.9",
+  "version": "4.0.10",
   "description": "An ethereum provider that connects over a WebExtension port.",
   "main": "index.js",
   "scripts": {
@@ -14,11 +14,7 @@
     "type": "git",
     "url": "git+ssh://git@github.com/MetaMask/metamask-inpage-provider.git"
   },
-  "keywords": [
-    "MetaMask",
-    "Ethereum",
-    "Provider"
-  ],
+  "keywords": ["MetaMask", "Ethereum", "Provider"],
   "bugs": {
     "url": "https://github.com/MetaMask/metamask-inpage-provider/issues"
   },
