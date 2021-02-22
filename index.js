@@ -1,38 +1,38 @@
-const pump = require('pump')
-const RpcEngine = require('json-rpc-engine')
-const createIdRemapMiddleware = require('json-rpc-engine/src/idRemapMiddleware')
-const createJsonRpcStream = require('json-rpc-middleware-stream')
-const ObservableStore = require('obs-store')
-const asStream = require('obs-store/lib/asStream')
-const ObjectMultiplex = require('obj-multiplex')
-const { inherits } = require('util')
-const SafeEventEmitter = require('safe-event-emitter')
-const dequal = require('fast-deep-equal')
-const { ethErrors } = require('eth-json-rpc-errors')
-const log = require('loglevel')
+const pump = require("pump")
+const RpcEngine = require("json-rpc-engine")
+const createIdRemapMiddleware = require("json-rpc-engine/src/idRemapMiddleware")
+const createJsonRpcStream = require("json-rpc-middleware-stream")
+const ObservableStore = require("obs-store")
+const asStream = require("obs-store/lib/asStream")
+const ObjectMultiplex = require("obj-multiplex")
+const { inherits } = require("util")
+const SafeEventEmitter = require("safe-event-emitter")
+const dequal = require("fast-deep-equal")
+const { ethErrors } = require("eth-json-rpc-errors")
+const log = require("loglevel")
 
-const messages = require('./src/messages')
-const { sendSiteMetadata } = require('./src/siteMetadata')
+const messages = require("./src/messages")
+const { sendSiteMetadata } = require("./src/siteMetadata")
 const {
   createErrorMiddleware,
   logStreamDisconnectWarning,
   makeThenable,
-} = require('./src/utils')
+} = require("./src/utils")
 
 // resolve response.result, reject errors
 const getRpcPromiseCallback = (resolve, reject) => (error, response) => {
   error || response.error
     ? reject(error || response.error)
     : Array.isArray(response)
-      ? resolve(response)
-      : resolve(response.result)
+    ? resolve(response)
+    : resolve(response.result)
 }
 
 module.exports = MetamaskInpageProvider
 
 inherits(MetamaskInpageProvider, SafeEventEmitter)
 
-function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
+function MetamaskInpageProvider(connectionStream, shouldSendMetadata = true) {
   // super constructor
   SafeEventEmitter.call(this)
 
@@ -64,17 +64,17 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
     connectionStream,
     mux,
     connectionStream,
-    this._handleDisconnect.bind(this, 'ConfluxPortal'),
+    this._handleDisconnect.bind(this, "ConfluxPortal")
   )
 
   // subscribe to metamask public config (one-way)
   this._publicConfigStore = new ObservableStore({
-    storageKey: 'Conflux-Portal-Config',
+    storageKey: "Conflux-Portal-Config",
   })
 
   // handle isUnlocked changes, and chainChanged and networkChanged events
   this._publicConfigStore.subscribe((state) => {
-    if ('isUnlocked' in state && state.isUnlocked !== this._state.isUnlocked) {
+    if ("isUnlocked" in state && state.isUnlocked !== this._state.isUnlocked) {
       this._state.isUnlocked = state.isUnlocked
       if (!this._state.isUnlocked) {
         // accounts are never exposed when the extension is locked
@@ -83,45 +83,54 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
         // this will get the exposed accounts, if any
         try {
           this._sendAsync(
-            { method: 'eth_accounts', params: [] },
+            { method: "eth_accounts", params: [] },
             () => {},
-            true, // indicating that eth_accounts _should_ update accounts
+            true // indicating that eth_accounts _should_ update accounts
           )
         } catch (_) {}
       }
     }
 
     // Emit chainChanged event on chain change
-    if ('chainId' in state && state.chainId !== this.chainId) {
+    if ("chainId" in state && state.chainId !== this.chainId) {
       this.chainId = state.chainId
-      this.emit('chainChanged', this.chainId)
-      this.emit('chainIdChanged', this.chainId) // TODO:deprecate:2020-Q1
+      this.emit("chainChanged", this.chainId)
+      this.emit("chainIdChanged", this.chainId) // TODO:deprecate:2020-Q1
     }
 
     // Emit networkChanged event on network change
     if (
-      'networkVersion' in state &&
+      "networkVersion" in state &&
       state.networkVersion !== this.networkVersion
     ) {
+      if (this._state.isUnlocked) {
+        try {
+          this._sendAsync(
+            { method: "eth_accounts", params: [] },
+            () => {},
+            true // indicating that eth_accounts _should_ update accounts
+          )
+        } catch (_) {}
+      }
       this.networkVersion = state.networkVersion
-      this.emit('networkChanged', this.networkVersion)
+      this.emit("networkChanged", this.networkVersion)
     }
   })
 
   pump(
-    mux.createStream('confluxPortalPublicConfig'),
+    mux.createStream("confluxPortalPublicConfig"),
     asStream(this._publicConfigStore),
     // RPC requests should still work if only this stream fails
-    logStreamDisconnectWarning.bind(this, 'ConfluxPortal PublicConfigStore'),
+    logStreamDisconnectWarning.bind(this, "ConfluxPortal PublicConfigStore")
   )
 
   // ignore phishing warning message (handled elsewhere)
-  mux.ignoreStream('confluxPortalPhishing')
+  mux.ignoreStream("confluxPortalPhishing")
 
   // setup own event listeners
 
   // EIP-1193 connect
-  this.on('connect', () => {
+  this.on("connect", () => {
     this._state.isConnected = true
   })
 
@@ -130,9 +139,9 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   const jsonRpcConnection = createJsonRpcStream()
   pump(
     jsonRpcConnection.stream,
-    mux.createStream('confluxPortalProvider'),
+    mux.createStream("confluxPortalProvider"),
     jsonRpcConnection.stream,
-    this._handleDisconnect.bind(this, 'ConfluxPortal RpcProvider'),
+    this._handleDisconnect.bind(this, "ConfluxPortal RpcProvider")
   )
 
   // handle RPC requests via dapp-side rpc engine
@@ -143,12 +152,12 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   this._rpcEngine = rpcEngine
 
   // json rpc notification listener
-  jsonRpcConnection.events.on('notification', (payload) => {
-    if (payload.method === 'wallet_accountsChanged') {
+  jsonRpcConnection.events.on("notification", (payload) => {
+    if (payload.method === "wallet_accountsChanged") {
       this._handleAccountsChanged(payload.result)
-    } else if (payload.method === 'eth_subscription') {
+    } else if (payload.method === "eth_subscription") {
       // EIP 1193 subscriptions, per eth-json-rpc-filters/subscriptionManager
-      this.emit('notification', payload.params.result)
+      this.emit("notification", payload.params.result)
     }
   })
 
@@ -156,13 +165,13 @@ function MetamaskInpageProvider (connectionStream, shouldSendMetadata = true) {
   if (shouldSendMetadata) {
     const domContentLoadedHandler = () => {
       sendSiteMetadata(this._rpcEngine)
-      window.removeEventListener('DOMContentLoaded', domContentLoadedHandler)
+      window.removeEventListener("DOMContentLoaded", domContentLoadedHandler)
     }
-    window.addEventListener('DOMContentLoaded', domContentLoadedHandler)
+    window.addEventListener("DOMContentLoaded", domContentLoadedHandler)
   }
 
   // indicate that we've connected, for EIP-1193 compliance
-  setTimeout(() => this.emit('connect'))
+  setTimeout(() => this.emit("connect"))
 
   // TODO:deprecate:2020-Q1
   // wait a second to attempt to send this, so that the warning can be silenced
@@ -215,10 +224,10 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
 
   // construct payload object
   let payload
-  if (typeof methodOrPayload === 'object' && !Array.isArray(methodOrPayload)) {
+  if (typeof methodOrPayload === "object" && !Array.isArray(methodOrPayload)) {
     // TODO:deprecate:2020-Q1
     // handle send(object, callback), an alias for sendAsync(object, callback)
-    if (typeof params === 'function') {
+    if (typeof params === "function") {
       return this._sendAsync(methodOrPayload, params)
     }
 
@@ -229,20 +238,20 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
     if (
       !params &&
       [
-        'eth_accounts',
-        'eth_coinbase',
-        'eth_uninstallFilter',
-        'cfx_accounts',
-        'cfx_coinbase',
-        'cfx_uninstallFilter',
-        'net_version',
+        "eth_accounts",
+        "eth_coinbase",
+        "eth_uninstallFilter",
+        "cfx_accounts",
+        "cfx_coinbase",
+        "cfx_uninstallFilter",
+        "net_version",
       ].includes(payload.method)
     ) {
       return this._sendSync(payload)
     }
   } else if (
-    typeof methodOrPayload === 'string' &&
-    typeof params !== 'function'
+    typeof methodOrPayload === "string" &&
+    typeof params !== "function"
   ) {
     // wrap params in array out of kindness
     // params have to be an array per EIP 1193, even though JSON RPC
@@ -261,7 +270,7 @@ MetamaskInpageProvider.prototype.send = function (methodOrPayload, params) {
 
   // typecheck payload and payload.params
   if (
-    typeof payload !== 'object' ||
+    typeof payload !== "object" ||
     Array.isArray(payload) ||
     !Array.isArray(params)
   ) {
@@ -294,8 +303,8 @@ MetamaskInpageProvider.prototype.enable = function () {
   return new Promise((resolve, reject) => {
     try {
       this._sendAsync(
-        { method: 'eth_requestAccounts', params: [] },
-        getRpcPromiseCallback(resolve, reject),
+        { method: "eth_requestAccounts", params: [] },
+        getRpcPromiseCallback(resolve, reject)
       )
     } catch (error) {
       reject(error)
@@ -330,23 +339,23 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
 
   let result
   switch (payload.method) {
-    case 'eth_accounts':
-    case 'cfx_accounts':
+    case "eth_accounts":
+    case "cfx_accounts":
       result = this.selectedAddress ? [this.selectedAddress] : []
       break
 
-    case 'eth_coinbase':
-    case 'cfx_coinbase':
+    case "eth_coinbase":
+    case "cfx_coinbase":
       result = this.selectedAddress || null
       break
 
-    case 'eth_uninstallFilter':
-    case 'cfx_uninstallFilter':
+    case "eth_uninstallFilter":
+    case "cfx_uninstallFilter":
       this._sendAsync(payload, () => {})
       result = true
       break
 
-    case 'net_version':
+    case "net_version":
       result = this.networkVersion || null
       break
 
@@ -361,7 +370,7 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
       jsonrpc: payload.jsonrpc,
       result,
     },
-    'result',
+    "result"
   )
 }
 
@@ -376,27 +385,27 @@ MetamaskInpageProvider.prototype._sendSync = function (payload) {
 MetamaskInpageProvider.prototype._sendAsync = function (
   payload,
   userCallback,
-  isInternal = false,
+  isInternal = false
 ) {
   let cb = userCallback
 
   if (!Array.isArray(payload)) {
     if (!payload.jsonrpc) {
-      payload.jsonrpc = '2.0'
+      payload.jsonrpc = "2.0"
     }
 
     if (
-      payload.method === 'cfx_accounts' ||
-      payload.method === 'eth_accounts' ||
-      payload.method === 'cfx_requestAccounts' ||
-      payload.method === 'eth_requestAccounts'
+      payload.method === "cfx_accounts" ||
+      payload.method === "eth_accounts" ||
+      payload.method === "cfx_requestAccounts" ||
+      payload.method === "eth_requestAccounts"
     ) {
       // handle accounts changing
       cb = (err, res) => {
         this._handleAccountsChanged(
           res.result || [],
-          payload.method === 'eth_accounts',
-          isInternal,
+          payload.method === "eth_accounts",
+          isInternal
         )
         userCallback(err, res)
       }
@@ -411,13 +420,13 @@ MetamaskInpageProvider.prototype._sendAsync = function (
  */
 MetamaskInpageProvider.prototype._handleDisconnect = function (
   streamName,
-  err,
+  err
 ) {
   logStreamDisconnectWarning.bind(this)(streamName, err)
   if (this._state.isConnected) {
-    this.emit('close', {
+    this.emit("close", {
       code: 1011,
-      reason: 'ConfluxPortal background communication error.',
+      reason: "ConfluxPortal background communication error.",
     })
   }
   this._state.isConnected = false
@@ -429,13 +438,13 @@ MetamaskInpageProvider.prototype._handleDisconnect = function (
 MetamaskInpageProvider.prototype._handleAccountsChanged = function (
   accounts,
   isEthAccounts = false,
-  isInternal = false,
+  isInternal = false
 ) {
   // defensive programming
   if (!Array.isArray(accounts)) {
     log.error(
-      'ConfluxPortal: Received non-array accounts parameter. Please report this bug.',
-      accounts,
+      "ConfluxPortal: Received non-array accounts parameter. Please report this bug.",
+      accounts
     )
     accounts = []
   }
@@ -447,11 +456,11 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (
     if (isEthAccounts && !isInternal) {
       log.error(
         `MetaMask: 'eth_accounts' unexpectedly updated accounts. Please report this bug.`,
-        accounts,
+        accounts
       )
     }
 
-    this.emit('accountsChanged', accounts)
+    this.emit("accountsChanged", accounts)
     this._state.accounts = accounts
   }
 
@@ -464,7 +473,7 @@ MetamaskInpageProvider.prototype._handleAccountsChanged = function (
   // handle web3
   if (this._web3Ref) {
     this._web3Ref.defaultAccount = this.selectedAddress
-  } else if (window.web3 && typeof window.web3.eth === 'object') {
+  } else if (window.web3 && typeof window.web3.eth === "object") {
     window.web3.eth.defaultAccount = this.selectedAddress
   }
 }
@@ -474,11 +483,11 @@ MetamaskInpageProvider.prototype.requestId = function () {
 }
 
 MetamaskInpageProvider.prototype.call = async function (method, ...params) {
-  if (method === 'send_transaction') method = 'cfx_sendTransaction'
+  if (method === "send_transaction") method = "cfx_sendTransaction"
   const payload = {
     method,
     params,
-    jsonrpc: '2.0',
+    jsonrpc: "2.0",
     id: this.requestId(),
   }
 
@@ -488,9 +497,9 @@ MetamaskInpageProvider.prototype.call = async function (method, ...params) {
         reject(err || error)
       }
 
-      if (result === '0x') {
+      if (result === "0x") {
         result =
-          '0x0000000000000000000000000000000000000000000000000000000000000000'
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
       }
 
       resolve(result)
@@ -501,7 +510,7 @@ MetamaskInpageProvider.prototype.call = async function (method, ...params) {
 /**
  * Gets experimental _metamask API as Proxy.
  */
-function getExperimentalApi (instance) {
+function getExperimentalApi(instance) {
   return new Proxy(
     {
       /**
@@ -512,7 +521,7 @@ function getExperimentalApi (instance) {
       isUnlocked: async () => {
         if (instance._state.isUnlocked === undefined) {
           await new Promise((resolve) =>
-            instance._publicConfigStore.once('update', () => resolve()),
+            instance._publicConfigStore.once("update", () => resolve())
           )
         }
         return instance._state.isUnlocked
@@ -526,7 +535,7 @@ function getExperimentalApi (instance) {
         if (!Array.isArray(requests)) {
           throw ethErrors.rpc.invalidRequest({
             message:
-              'Batch requests must be made with an array of request objects.',
+              "Batch requests must be made with an array of request objects.",
             data: requests,
           })
         }
@@ -535,7 +544,7 @@ function getExperimentalApi (instance) {
           try {
             instance._sendAsync(
               requests,
-              getRpcPromiseCallback(resolve, reject),
+              getRpcPromiseCallback(resolve, reject)
             )
           } catch (error) {
             reject(error)
@@ -566,7 +575,7 @@ function getExperimentalApi (instance) {
       isApproved: async () => {
         if (instance._state.accounts === undefined) {
           await new Promise((resolve) =>
-            instance.once('accountsChanged', () => resolve()),
+            instance.once("accountsChanged", () => resolve())
           )
         }
         return (
@@ -583,6 +592,6 @@ function getExperimentalApi (instance) {
         }
         return obj[prop]
       },
-    },
+    }
   )
 }
